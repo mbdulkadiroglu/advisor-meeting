@@ -1046,7 +1046,7 @@
   <div class="phase-header">
     <span class="phase-num">04</span>
     <h2 class="phase-title">The Disconnect</h2>
-    <p class="phase-desc">The coherence time motivation assumes a time-varying channel with strict inference deadlines. Neither dataset has this property.</p>
+    <p class="phase-desc">The current motivation assumes a time-varying wireless channel with strict deadlines, but the benchmark tasks themselves are static per sample.</p>
   </div>
 
   <div class="coherence-scenarios reveal">
@@ -1092,14 +1092,18 @@
   </div>
 
   <div class="disconnect-box reveal">
-    <strong>The core mismatch:</strong> Coherence time creates genuine latency pressure only when the channel is actively changing. Both datasets are static &mdash; you can take as long as you want to reconstruct them. Any latency budget we impose would be artificial, and reviewers will likely question why speed matters for static reconstruction.
+    <strong>The core mismatch:</strong> Coherence time creates genuine latency pressure only when the channel is changing over time. HRRR and RadioMapSeer are static per-sample benchmarks, so the benchmark itself does not impose a natural coherence deadline. That does not mean speed is irrelevant, but it does mean the current real-time RF framing is weak unless we switch datasets or explicitly present these tasks as proxies.
+  </div>
+
+  <div class="key-point reveal">
+    <strong>Literature support:</strong> RadioMapSeer-style prediction is usually posed as a static snapshot task: environment map + single Tx &rarr; dense pathloss map. The dominant framing in that literature is fast surrogate modeling for propagation simulation / planning. Stronger real-time digital-twin claims appear in newer radio-map papers, but not cleanly in the core RadioMapSeer benchmark.
   </div>
 
   <div class="question-box reveal">
     <strong>Questions for discussion:</strong>
     <ul>
-      <li>Should we use a <strong>time-varying channel simulator</strong> (QuaDRiGa, DeepMIMO, Sionna) to match the coherence time motivation?</li>
-      <li>Or are HRRR / RadioMapSeer intended as <strong>proxies</strong> for the spatial reconstruction task? If so, how do we frame the speed motivation for reviewers?</li>
+      <li>Should we use a <strong>time-varying channel simulator</strong> (QuaDRiGa, DeepMIMO, Sionna) if coherence time is the real motivation?</li>
+      <li>Or are HRRR / RadioMapSeer intended as <strong>proxy tasks</strong> for adaptive spatial reconstruction, in which case we should replace the coherence-time story with a planning / repeated-query / simulation-surrogate story?</li>
     </ul>
   </div>
 </section>
@@ -1111,7 +1115,7 @@
   <div class="phase-header">
     <span class="phase-num">05</span>
     <h2 class="phase-title">Router Feasibility</h2>
-    <p class="phase-desc">Even if we accept the latency motivation, the practical challenges of routing are significant given already-fast baseline models.</p>
+    <p class="phase-desc">Even if we accept a speed motivation, adaptive inference has limited upside on the canonical task because the dominant CNN baselines are already in the low-millisecond regime.</p>
   </div>
 
   <table class="latency-table reveal">
@@ -1156,27 +1160,31 @@
     </tbody>
   </table>
 
+  <div class="key-point reveal">
+    <strong>Literature support:</strong> Directly reported forward times for RadioMapSeer-style CNN predictors are already roughly 1&ndash;10 ms (RadioUNet), about 10 ms in the ICASSP challenge overview, and 14 ms for a REM-U-net variant. The clearest latency pain in the literature appears instead in diffusion-based radio map generation, where inference rises to hundreds of milliseconds or seconds.
+  </div>
+
   <div class="challenges-grid reveal">
     <div class="challenge-card">
       <h4><span class="ch-num">1</span> Router overhead</h4>
-      <p>A router network adds its own inference latency. Even 0.2ms overhead is a 10% tax on REPA's 1.9ms. The net time savings from routing to a faster model must exceed this overhead &mdash; and the margins are razor-thin at the millisecond scale.</p>
+      <p>A router network adds its own latency. Even 0.2ms overhead is a 10% tax on a 1.9ms forward pass. When the baseline model already runs in a few milliseconds, the absolute headroom for routing is small unless the deployment loop is extremely throughput-constrained.</p>
     </div>
     <div class="challenge-card">
       <h4><span class="ch-num">2</span> Difficulty detection from sparse input</h4>
-      <p>The router must decide which model to use based on 4&ndash;16 observed patches (2&ndash;6% of the field). Estimating reconstruction difficulty from so little information is an open problem. Even in NLP with rich text, task-difficulty routing is challenging.</p>
+      <p>The literature does show heterogeneous difficulty &mdash; LOS vs NLOS, building density, map inaccuracies, and missing buildings all affect error. So routing is not conceptually absurd. The weaker point is that this heterogeneity may not buy much when the baseline CNN forward pass is already only a few milliseconds.</p>
     </div>
     <div class="challenge-card">
       <h4><span class="ch-num">3</span> Coherence time is already known</h4>
-      <p>If routing is based on the coherence time (derived from Doppler spread), no learned router is needed &mdash; the system already knows the deadline. A simple threshold or lookup table suffices. This is practical but may not be publishable as a research contribution.</p>
+      <p>If routing is driven mainly by coherence time, then the system already knows the deadline from Doppler assumptions. In that case a learned router is hard to justify as the contribution; a threshold rule or fixed policy may explain most of the benefit.</p>
     </div>
   </div>
 
   <div class="question-box reveal">
     <strong>Questions for discussion:</strong>
     <ul>
-      <li>Is the routing decision based on <strong>coherence time</strong> (a known system parameter) or <strong>estimated sample difficulty</strong> (must be learned)?</li>
-      <li>Would <strong>early-exit within a single model</strong> (stop at transformer layer 8 vs. 16) be more practical than routing between separate models? This avoids the overhead of a separate router.</li>
-      <li>What is the baseline we are trying to beat &mdash; always using the fast model (PINN) vs. always using the accurate model (REPA)?</li>
+      <li>Are we targeting a setting where adaptive inference is actually valuable: <strong>diffusion-scale latency, repeated-query optimization, CPU / edge deployment, or heavy preprocessing</strong>?</li>
+      <li>If the target is still the canonical CNN task, would <strong>early exit inside one model</strong> be more defensible than routing between separate models?</li>
+      <li>What exact baseline are we trying to beat &mdash; always using the fast model, always using the accurate model, or replacing a much slower simulator?</li>
     </ul>
   </div>
 </section>
