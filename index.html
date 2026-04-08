@@ -861,6 +861,8 @@
         <br><br>
         In the emails, &ldquo;kanal&rdquo; refers to a wireless communication channel that changes over time due to mobility. But which channel are we reconstructing? A channel that decorrelates in 3&ndash;200ms would require time-varying channel measurements (e.g., CSI matrices sampled as a user moves) &mdash; neither dataset provides this.
         <br><br>
+        It is worth noting that the RadioMapSeer literature itself frames the task as an <em>offline network-planning surrogate</em> for ray tracing &mdash; not as a real-time system. No RadioMapSeer paper discusses edge deployment, on-device inference, or mobile-phone latency constraints. The implicit deployment target is a GPU-equipped server for planning workflows.
+        <br><br>
         <strong>What I&rsquo;d like to clarify:</strong> How do static field reconstruction and time-varying channel coherence connect? Which &ldquo;channel&rdquo; is being reconstructed, and what does the input/output look like in the coherence time scenario?
       </div>
     </div>
@@ -1031,7 +1033,9 @@
       <div class="concern-analysis">
         The professor&rsquo;s example uses a 2-second inference time to motivate the problem &mdash; but the actual models run at 1&ndash;3 ms per sample, which is 1000&times; faster than that example. At these speeds, the router&rsquo;s own overhead becomes the bottleneck.
         <br><br>
-        Beyond latency: how does the router decide? If it routes based on <strong>coherence time</strong> (a known system parameter), no ML is needed &mdash; just a threshold. If it routes based on <strong>sample difficulty</strong>, the router only sees 4&ndash;16 sparse patches (2&ndash;6% of the field). Detecting difficulty from so little information is extremely challenging &mdash; even in NLP with full text input, task-difficulty routing remains an open problem.
+        Beyond latency: how does the router decide? If it routes based on <strong>coherence time</strong> (a known system parameter), no ML is needed &mdash; just a threshold. If it routes based on <strong>sample difficulty</strong>, the router only sees sparse observations. The literature does show that scene difficulty varies (building density, LOS/NLOS), so heterogeneity exists &mdash; but detecting it cheaply enough to justify the router overhead is an open question.
+        <br><br>
+        From what I can find, <strong>no published paper applies early exit, model routing, or input-adaptive depth to radio map prediction</strong>. The closest work is REM-U-net, which trains two models (low-density vs high-density scenes) and selects between them based on building density &mdash; but that is motivated by accuracy, not latency. This suggests the idea is novel but also untested.
         <br><br>
         <strong>What I&rsquo;d like to clarify:</strong> What signal does the router use to make its decision? And given the ~2ms baseline, what is the target latency range where routing provides a meaningful improvement?
       </div>
@@ -1122,40 +1126,47 @@
     <thead>
       <tr>
         <th>Model</th>
-        <th>Inference / sample</th>
-        <th>Parameters</th>
-        <th>Fits in 3ms? (vehicular)</th>
-        <th>Fits in 200ms? (stationary)</th>
+        <th>Type</th>
+        <th>Inference / map</th>
+        <th>Source</th>
       </tr>
     </thead>
     <tbody>
       <tr>
-        <td><strong>PINN</strong></td>
-        <td class="mono">~0.8 ms</td>
-        <td class="mono">39M</td>
-        <td class="fit--yes">Yes</td>
-        <td class="fit--yes">Yes</td>
+        <td><strong>RadioUNet</strong></td>
+        <td>CNN</td>
+        <td class="mono fit--yes">1&ndash;10 ms</td>
+        <td>Levie et al., 2021</td>
       </tr>
       <tr>
-        <td><strong>REPA</strong></td>
-        <td class="mono">~1.9 ms</td>
-        <td class="mono">35M</td>
-        <td class="fit--barely">Barely</td>
-        <td class="fit--yes">Yes</td>
+        <td><strong>PMNet</strong></td>
+        <td>CNN</td>
+        <td class="mono fit--yes">&ldquo;a few ms&rdquo;</td>
+        <td>Lee et al., 2023</td>
       </tr>
       <tr>
-        <td><strong>VMD</strong></td>
-        <td class="mono">~1.9 ms</td>
-        <td class="mono">37M</td>
-        <td class="fit--barely">Barely</td>
-        <td class="fit--yes">Yes</td>
+        <td><strong>AIRMap</strong></td>
+        <td>CNN</td>
+        <td class="mono fit--yes">4.2 ms</td>
+        <td>2025 (L40S GPU)</td>
       </tr>
       <tr>
-        <td><strong>ET</strong></td>
-        <td class="mono">~3.0 ms</td>
-        <td class="mono">5M</td>
-        <td class="fit--no">No</td>
-        <td class="fit--yes">Yes</td>
+        <td><strong>RadioMamba</strong></td>
+        <td>Mamba+UNet</td>
+        <td class="mono fit--barely">28 ms</td>
+        <td>2025 (A40 GPU)</td>
+      </tr>
+      <tr>
+        <td><strong>RadioDiff</strong></td>
+        <td>Diffusion</td>
+        <td class="mono fit--no">553 ms</td>
+        <td>2024 (A40 GPU)</td>
+      </tr>
+      <tr>
+        <td><strong>Ray tracing (CPU)</strong></td>
+        <td>Simulation</td>
+        <td class="mono fit--no">86&ndash;387 s</td>
+        <td>WinProp / Sionna</td>
       </tr>
     </tbody>
   </table>
@@ -1215,6 +1226,10 @@
     <li class="discussion-item reveal">
       <h4>Target scenario</h4>
       <p>What is the deployment scenario &mdash; vehicular, pedestrian, indoor? This determines the coherence time range and the reconstruction requirements. It also determines whether the ~2ms inference of current models is already fast enough.</p>
+    </li>
+    <li class="discussion-item reveal">
+      <h4>CNN vs. diffusion routing as an alternative angle?</h4>
+      <p>The literature shows a large latency gap between CNN models (1&ndash;10 ms) and diffusion models (553+ ms), while diffusion models offer higher accuracy on hard scenes. Routing easy scenes to a CNN and hard scenes to a diffusion model could be a viable and novel direction &mdash; no paper has tried this. Though architectures like RadioMamba (28 ms) are closing this gap.</p>
     </li>
     <li class="discussion-item reveal">
       <h4>Target venue &amp; timeline</h4>
