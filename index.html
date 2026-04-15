@@ -773,6 +773,225 @@
   </div>
 </section>
 
+<!-- ====== SECTION 00B: CURRENT EXPERIMENT — DETAILED CASCADE ====== -->
+<section class="phase" id="cascade-experiment">
+  <div class="phase-header">
+    <span class="phase-num">00b &middot; what we're actually training</span>
+    <h2 class="phase-title">The Cascade, Step by Step</h2>
+    <p class="phase-desc">One model, two stages trained jointly. The cheap Stage&nbsp;1 produces a quick coarse prediction from a small number of measurements. Stage&nbsp;2 is a refiner: it sees the same scene, <em>more</em> measurements, <em>and</em> Stage&nbsp;1's prediction &mdash; then outputs a refined map. If future experiments confirm it, a gate after Stage&nbsp;1 decides whether Stage&nbsp;2 is worth running per-sample.</p>
+  </div>
+
+  <figure style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:28px 24px 18px; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin:0;">
+    <svg viewBox="0 0 960 480" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cascade architecture diagram" style="display:block; width:100%; height:auto; font-family:'DM Sans',-apple-system,sans-serif;">
+      <defs>
+        <marker id="cx-arr-gray"   viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker>
+        <marker id="cx-arr-green"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#10b981"/></marker>
+        <marker id="cx-arr-indigo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#6366f1"/></marker>
+        <marker id="cx-arr-amber"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#ea580c"/></marker>
+        <radialGradient id="cx-heat-small" cx="0.5" cy="0.55" r="0.7"><stop offset="0%"  stop-color="#fef3c7"/><stop offset="60%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#1e3a8a"/></radialGradient>
+        <radialGradient id="cx-heat-full"  cx="0.42" cy="0.52" r="0.6"><stop offset="0%"  stop-color="#fde68a"/><stop offset="45%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#0f172a"/></radialGradient>
+      </defs>
+
+      <!-- Row labels -->
+      <text x="24" y="110" font-size="12" font-weight="700" fill="#065f46" transform="rotate(-90 24 110)">STAGE 1 &middot; cheap</text>
+      <text x="24" y="360" font-size="12" font-weight="700" fill="#312e81" transform="rotate(-90 24 360)">STAGE 2 &middot; refiner</text>
+
+      <!-- ====== STAGE 1 ROW ====== -->
+      <!-- Input channels bundle -->
+      <g transform="translate(60,50)">
+        <rect x="0" y="0" width="210" height="140" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+        <text x="105" y="18" text-anchor="middle" font-size="11" font-weight="700" fill="#334155">Stage 1 input &mdash; 4 channels</text>
+        <!-- Four small thumbnails side-by-side -->
+        <g transform="translate(12,30)">
+          <rect x="0" y="0" width="42" height="42" rx="4" fill="#cbd5e1"/>
+          <rect x="0" y="0" width="42" height="42" rx="4" fill="#64748b" opacity="0.35"/>
+          <text x="21" y="56" text-anchor="middle" font-size="9" fill="#334155">buildings</text>
+        </g>
+        <g transform="translate(60,30)">
+          <rect x="0" y="0" width="42" height="42" rx="4" fill="#f8fafc"/>
+          <circle cx="28" cy="14" r="4" fill="#dc2626"/>
+          <text x="21" y="56" text-anchor="middle" font-size="9" fill="#334155">Tx</text>
+        </g>
+        <g transform="translate(108,30)">
+          <rect x="0" y="0" width="42" height="42" rx="4" fill="#f8fafc" stroke="#cbd5e1"/>
+          <!-- 10 sparse dots -->
+          <circle cx="8"  cy="10" r="1.6" fill="#ea580c"/><circle cx="20" cy="7"  r="1.6" fill="#ea580c"/>
+          <circle cx="34" cy="12" r="1.6" fill="#ea580c"/><circle cx="12" cy="22" r="1.6" fill="#ea580c"/>
+          <circle cx="26" cy="20" r="1.6" fill="#ea580c"/><circle cx="37" cy="26" r="1.6" fill="#ea580c"/>
+          <circle cx="6"  cy="32" r="1.6" fill="#ea580c"/><circle cx="16" cy="35" r="1.6" fill="#ea580c"/>
+          <circle cx="30" cy="34" r="1.6" fill="#ea580c"/><circle cx="22" cy="28" r="1.6" fill="#ea580c"/>
+          <text x="21" y="56" text-anchor="middle" font-size="9" fill="#334155">K=10 meas</text>
+        </g>
+        <g transform="translate(156,30)">
+          <rect x="0" y="0" width="42" height="42" rx="4" fill="#f1f5f9" stroke="#cbd5e1"/>
+          <circle cx="8"  cy="10" r="1.6" fill="#334155"/><circle cx="20" cy="7"  r="1.6" fill="#334155"/>
+          <circle cx="34" cy="12" r="1.6" fill="#334155"/><circle cx="12" cy="22" r="1.6" fill="#334155"/>
+          <circle cx="26" cy="20" r="1.6" fill="#334155"/><circle cx="37" cy="26" r="1.6" fill="#334155"/>
+          <circle cx="6"  cy="32" r="1.6" fill="#334155"/><circle cx="16" cy="35" r="1.6" fill="#334155"/>
+          <circle cx="30" cy="34" r="1.6" fill="#334155"/><circle cx="22" cy="28" r="1.6" fill="#334155"/>
+          <text x="21" y="56" text-anchor="middle" font-size="9" fill="#334155">mask</text>
+        </g>
+        <text x="105" y="118" text-anchor="middle" font-size="9" fill="#64748b">(measurement locations = orange dots,</text>
+        <text x="105" y="130" text-anchor="middle" font-size="9" fill="#64748b">mask = binary "is there a measurement here?")</text>
+      </g>
+      <line x1="270" y1="120" x2="308" y2="120" stroke="#64748b" stroke-width="2" marker-end="url(#cx-arr-gray)"/>
+
+      <!-- Stage 1 U-Net (smaller/lighter to suggest cheap) -->
+      <g>
+        <path d="M 312 78 L 412 78 L 390 115 L 334 115 Z" fill="#d1fae5" stroke="#10b981" stroke-width="1.6"/>
+        <rect x="334" y="115" width="56" height="18" fill="#a7f3d0" stroke="#10b981" stroke-width="1.6"/>
+        <path d="M 334 133 L 390 133 L 412 168 L 312 168 Z" fill="#d1fae5" stroke="#10b981" stroke-width="1.6"/>
+        <text x="362" y="188" text-anchor="middle" font-size="12" font-weight="700" fill="#065f46">Stage 1 U-Net</text>
+        <text x="362" y="202" text-anchor="middle" font-size="9" fill="#047857">cheap pass &middot; one forward</text>
+      </g>
+      <line x1="412" y1="123" x2="450" y2="123" stroke="#64748b" stroke-width="2" marker-end="url(#cx-arr-gray)"/>
+
+      <!-- ŷ₁ output -->
+      <g>
+        <rect x="456" y="78" width="90" height="90" rx="6" fill="#f8fafc" stroke="#10b981" stroke-width="2"/>
+        <rect x="462" y="84" width="78" height="78" rx="4" fill="url(#cx-heat-small)" opacity="0.82"/>
+        <text x="501" y="188" text-anchor="middle" font-size="12" font-weight="700" fill="#065f46">y&#770;&#8321;</text>
+        <text x="501" y="202" text-anchor="middle" font-size="9" fill="#047857">coarse prediction</text>
+      </g>
+
+      <!-- ====== VERTICAL CONNECTOR: ŷ₁ fed into Stage 2 input ====== -->
+      <path d="M 501 168 Q 501 220 260 230" fill="none" stroke="#10b981" stroke-width="2.2"
+            stroke-dasharray="6,4" marker-end="url(#cx-arr-green)"/>
+      <text x="370" y="212" font-size="10" font-weight="600" fill="#065f46">y&#770;&#8321; becomes the 5th input channel for Stage 2</text>
+
+      <!-- ====== STAGE 2 ROW ====== -->
+      <g transform="translate(60,280)">
+        <rect x="0" y="0" width="254" height="160" rx="8" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5"/>
+        <text x="127" y="18" text-anchor="middle" font-size="11" font-weight="700" fill="#312e81">Stage 2 input &mdash; 5 channels</text>
+
+        <g transform="translate(10,30)">
+          <rect x="0" y="0" width="40" height="40" rx="4" fill="#cbd5e1"/>
+          <rect x="0" y="0" width="40" height="40" rx="4" fill="#64748b" opacity="0.35"/>
+          <text x="20" y="53" text-anchor="middle" font-size="9" fill="#334155">buildings</text>
+        </g>
+        <g transform="translate(55,30)">
+          <rect x="0" y="0" width="40" height="40" rx="4" fill="#f8fafc"/>
+          <circle cx="26" cy="14" r="4" fill="#dc2626"/>
+          <text x="20" y="53" text-anchor="middle" font-size="9" fill="#334155">Tx</text>
+        </g>
+        <g transform="translate(100,30)">
+          <rect x="0" y="0" width="40" height="40" rx="4" fill="#f8fafc" stroke="#cbd5e1"/>
+          <!-- Many more dots for K_large (showing the superset) -->
+          <circle cx="5" cy="4" r="1.3" fill="#ea580c"/><circle cx="13" cy="7" r="1.3" fill="#ea580c"/><circle cx="22" cy="3" r="1.3" fill="#ea580c"/>
+          <circle cx="31" cy="9" r="1.3" fill="#ea580c"/><circle cx="37" cy="5" r="1.3" fill="#ea580c"/>
+          <circle cx="4" cy="13" r="1.3" fill="#ea580c"/><circle cx="11" cy="17" r="1.3" fill="#ea580c"/><circle cx="17" cy="12" r="1.3" fill="#ea580c"/>
+          <circle cx="23" cy="17" r="1.3" fill="#ea580c"/><circle cx="30" cy="15" r="1.3" fill="#ea580c"/><circle cx="36" cy="18" r="1.3" fill="#ea580c"/>
+          <circle cx="6"  cy="24" r="1.3" fill="#ea580c"/><circle cx="14" cy="27" r="1.3" fill="#ea580c"/><circle cx="21" cy="23" r="1.3" fill="#ea580c"/>
+          <circle cx="28" cy="27" r="1.3" fill="#ea580c"/><circle cx="34" cy="26" r="1.3" fill="#ea580c"/>
+          <circle cx="4"  cy="33" r="1.3" fill="#ea580c"/><circle cx="10" cy="36" r="1.3" fill="#ea580c"/><circle cx="18" cy="34" r="1.3" fill="#ea580c"/>
+          <circle cx="26" cy="36" r="1.3" fill="#ea580c"/><circle cx="33" cy="34" r="1.3" fill="#ea580c"/><circle cx="38" cy="37" r="1.3" fill="#ea580c"/>
+          <text x="20" y="53" text-anchor="middle" font-size="9" fill="#334155">K=500 meas</text>
+        </g>
+        <g transform="translate(145,30)">
+          <rect x="0" y="0" width="40" height="40" rx="4" fill="#f1f5f9" stroke="#cbd5e1"/>
+          <circle cx="5" cy="4" r="1.3" fill="#334155"/><circle cx="13" cy="7" r="1.3" fill="#334155"/><circle cx="22" cy="3" r="1.3" fill="#334155"/>
+          <circle cx="31" cy="9" r="1.3" fill="#334155"/><circle cx="4" cy="13" r="1.3" fill="#334155"/>
+          <circle cx="17" cy="12" r="1.3" fill="#334155"/><circle cx="30" cy="15" r="1.3" fill="#334155"/>
+          <circle cx="14" cy="27" r="1.3" fill="#334155"/><circle cx="28" cy="27" r="1.3" fill="#334155"/>
+          <circle cx="18" cy="34" r="1.3" fill="#334155"/><circle cx="33" cy="34" r="1.3" fill="#334155"/>
+          <text x="20" y="53" text-anchor="middle" font-size="9" fill="#334155">mask</text>
+        </g>
+        <!-- ŷ₁ as 5th channel, highlighted -->
+        <g transform="translate(195,30)">
+          <rect x="0" y="0" width="48" height="40" rx="4" fill="url(#cx-heat-small)" opacity="0.85" stroke="#10b981" stroke-width="1.8"/>
+          <text x="24" y="53" text-anchor="middle" font-size="9" font-weight="700" fill="#065f46">y&#770;&#8321; (NEW)</text>
+        </g>
+        <text x="127" y="104" text-anchor="middle" font-size="9" fill="#475569">K=500 is a <tspan font-weight="700">superset</tspan> of the K=10 from Stage 1</text>
+        <text x="127" y="118" text-anchor="middle" font-size="9" fill="#475569">(measurements already collected are kept, 490 new ones added)</text>
+        <text x="127" y="138" text-anchor="middle" font-size="9" fill="#065f46">y&#770;&#8321; gives Stage 2 a prior to refine from</text>
+      </g>
+      <line x1="314" y1="360" x2="352" y2="360" stroke="#64748b" stroke-width="2" marker-end="url(#cx-arr-gray)"/>
+
+      <!-- Stage 2 U-Net (larger to suggest refiner) -->
+      <g>
+        <path d="M 356 312 L 472 312 L 446 354 L 382 354 Z" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.8"/>
+        <rect x="382" y="354" width="64" height="20" fill="#c7d2fe" stroke="#6366f1" stroke-width="1.8"/>
+        <path d="M 382 374 L 446 374 L 472 416 L 356 416 Z" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.8"/>
+        <text x="414" y="434" text-anchor="middle" font-size="12" font-weight="700" fill="#312e81">Stage 2 U-Net</text>
+        <text x="414" y="448" text-anchor="middle" font-size="9" fill="#4338ca">refiner &middot; conditions on y&#770;&#8321;</text>
+      </g>
+      <line x1="472" y1="362" x2="510" y2="362" stroke="#64748b" stroke-width="2" marker-end="url(#cx-arr-gray)"/>
+
+      <!-- ŷ₂ output -->
+      <g>
+        <rect x="516" y="316" width="96" height="96" rx="6" fill="#f8fafc" stroke="#6366f1" stroke-width="2.4"/>
+        <rect x="522" y="322" width="84" height="84" rx="4" fill="url(#cx-heat-full)"/>
+        <text x="564" y="432" text-anchor="middle" font-size="12" font-weight="700" fill="#312e81">y&#770;&#8322;</text>
+        <text x="564" y="446" text-anchor="middle" font-size="9" fill="#4338ca">refined prediction &middot; final output</text>
+      </g>
+
+      <!-- ====== Right-side glossary callouts ====== -->
+      <g transform="translate(650,50)">
+        <rect x="0" y="0" width="290" height="420" rx="10" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+        <text x="18" y="22" font-size="11" font-weight="700" fill="#0f172a">Key terms (what's what)</text>
+
+        <g transform="translate(14,42)">
+          <rect x="0" y="0" width="12" height="12" rx="2" fill="#64748b"/>
+          <text x="20" y="10" font-size="10" font-weight="700" fill="#334155">Buildings</text>
+          <text x="20" y="24" font-size="9" fill="#475569">city-block footprint map</text>
+        </g>
+        <g transform="translate(14,82)">
+          <circle cx="6" cy="6" r="6" fill="#dc2626"/>
+          <text x="20" y="10" font-size="10" font-weight="700" fill="#334155">Tx</text>
+          <text x="20" y="24" font-size="9" fill="#475569">transmitter location (known)</text>
+        </g>
+        <g transform="translate(14,122)">
+          <circle cx="6" cy="6" r="6" fill="#ea580c"/>
+          <text x="20" y="10" font-size="10" font-weight="700" fill="#334155">K measurements</text>
+          <text x="20" y="24" font-size="9" fill="#475569">K sparse sensor readings; more K = more info</text>
+        </g>
+        <g transform="translate(14,162)">
+          <rect x="0" y="0" width="12" height="12" rx="2" fill="#e2e8f0" stroke="#64748b"/>
+          <text x="20" y="10" font-size="10" font-weight="700" fill="#334155">Mask</text>
+          <text x="20" y="24" font-size="9" fill="#475569">binary indicator of measurement locations</text>
+        </g>
+        <g transform="translate(14,202)">
+          <rect x="0" y="0" width="12" height="12" rx="2" fill="url(#cx-heat-small)" opacity="0.85" stroke="#10b981"/>
+          <text x="20" y="10" font-size="10" font-weight="700" fill="#065f46">y&#770;&#8321; &mdash; stage 1 output</text>
+          <text x="20" y="24" font-size="9" fill="#475569">coarse prediction; fed back as input to Stage 2</text>
+        </g>
+        <g transform="translate(14,244)">
+          <rect x="0" y="0" width="12" height="12" rx="2" fill="url(#cx-heat-full)" stroke="#6366f1"/>
+          <text x="20" y="10" font-size="10" font-weight="700" fill="#312e81">y&#770;&#8322; &mdash; stage 2 output</text>
+          <text x="20" y="24" font-size="9" fill="#475569">refined prediction; final answer</text>
+        </g>
+        <line x1="14" y1="286" x2="278" y2="286" stroke="#e2e8f0"/>
+
+        <text x="14" y="306" font-size="10" font-weight="700" fill="#0f172a">Why the cascade might help</text>
+        <text x="14" y="324" font-size="9.5" fill="#475569">Stage 2 sees <tspan font-weight="700">more measurements</tspan> (490 new)</text>
+        <text x="14" y="338" font-size="9.5" fill="#475569">AND <tspan font-weight="700">Stage 1's guess</tspan> &mdash; a decent starting prior.</text>
+        <text x="14" y="352" font-size="9.5" fill="#475569">Refining from a good coarse answer is usually</text>
+        <text x="14" y="366" font-size="9.5" fill="#475569">easier than predicting from scratch.</text>
+        <line x1="14" y1="380" x2="278" y2="380" stroke="#e2e8f0"/>
+
+        <text x="14" y="400" font-size="9.5" fill="#475569">Both stages trained <tspan font-weight="700">jointly</tspan>.</text>
+        <text x="14" y="412" font-size="9.5" fill="#475569">y&#770;&#8321; is detached so Stage 2 can&apos;t alter Stage 1.</text>
+      </g>
+    </svg>
+  </figure>
+
+  <!-- Notes grid: what we're comparing against + status -->
+  <div style="margin-top:24px; display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px;">
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:18px;">
+      <div style="font-size:0.68rem; font-weight:700; color:#10b981; letter-spacing:0.12em; text-transform:uppercase;">The comparison</div>
+      <p style="margin-top:10px; font-size:0.92rem; color:#334155; line-height:1.6;">The baseline is a <b>single-pass</b> model that sees the same K=500 measurements but <em>not</em> y&#770;&#8321;. If Stage&nbsp;2 of the cascade meaningfully beats the single-pass at matched K, the y&#770;&#8321; conditioning is adding value beyond &quot;just more measurements&quot;.</p>
+    </div>
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:18px;">
+      <div style="font-size:0.68rem; font-weight:700; color:#6366f1; letter-spacing:0.12em; text-transform:uppercase;">Early status</div>
+      <p style="margin-top:10px; font-size:0.92rem; color:#334155; line-height:1.6;">At K=500, cascade beats single-pass by <b>+0.05 dB</b> on complete-buildings (4&#8209;epoch partial) and <b>+0.15 dB</b> on missing-buildings (best-val). At low K the cascade currently loses &mdash; Stage 1 is weaker than a dedicated single-pass model at K=10.</p>
+    </div>
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:18px;">
+      <div style="font-size:0.68rem; font-weight:700; color:#ea580c; letter-spacing:0.12em; text-transform:uppercase;">Open question</div>
+      <p style="margin-top:10px; font-size:0.92rem; color:#334155; line-height:1.6;">A gate after Stage 1 would decide whether Stage 2 is worth the extra cost per sample &mdash; the earlier Section&nbsp;00 diagram sketches this. We haven&apos;t built the gate yet; we first needed to confirm the cascade itself wins at high K.</p>
+    </div>
+  </div>
+</section>
+
 <!-- ====== SECTION 01: RADIOMAPSEER (PRIMARY) ====== -->
 <section class="phase" id="radiomapseer">
   <div class="phase-header">
