@@ -992,6 +992,39 @@
   </div>
 </section>
 
+<!-- ====== SECTION 00C: QUALITATIVE STAGE 1 VS STAGE 2 COMPARISON ====== -->
+<section class="phase" id="cascade-qualitative">
+  <div class="phase-header">
+    <span class="phase-num">00c &middot; stage 1 vs stage 2 &middot; side-by-side</span>
+    <h2 class="phase-title">Looking at Real Reconstructions</h2>
+    <p class="phase-desc">Four test samples from the missing-buildings split, spanning easy to hard (by single-pass RMSE). Each row shows the scene, the ground-truth radio map, Stage 1's coarse guess (K=10), Stage 2's refined output (K=500, conditioned on &#375;&#8321;), and for reference the single-pass baseline at the same K=500. A green border marks the best prediction per row &mdash; usually Stage 2.</p>
+  </div>
+
+  <figure style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:24px 16px 16px; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin:0;">
+    <img src="assets/cascade_qualitative.png" alt="Per-sample cascade stage 1 vs stage 2 vs single-pass reconstructions with RMSE"
+         style="display:block; width:100%; height:auto; border-radius:6px;"/>
+    <figcaption style="margin-top:14px; font-size:0.85rem; color:#64748b; line-height:1.55;">
+      Rows ordered from easier (top, single-pass RMSE &asymp; 1.4 dB) to harder (bottom, &asymp; 2.5 dB). Note how Stage 1 at K=10 produces a blurry but roughly correct shape; Stage 2 sharpens it using its extra 490 measurements <em>and</em> &#375;&#8321; as a prior; the single-pass baseline at K=500 matches Stage 2's K budget but doesn't get a coarse prior to start from.
+    </figcaption>
+  </figure>
+
+  <!-- What to notice cards -->
+  <div style="margin-top:24px; display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px;">
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:18px;">
+      <div style="font-size:0.68rem; font-weight:700; color:#10b981; letter-spacing:0.12em; text-transform:uppercase;">Stage 1 vs Stage 2</div>
+      <p style="margin-top:10px; font-size:0.92rem; color:#334155; line-height:1.6;">Stage 2 is <em>always</em> sharper than Stage 1 &mdash; expected, since it sees 50&times; more measurements <em>plus</em> &#375;&#8321;. The more interesting comparison is Stage 2 vs single-pass: same K, but only one has the &#375;&#8321; prior.</p>
+    </div>
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:18px;">
+      <div style="font-size:0.68rem; font-weight:700; color:#6366f1; letter-spacing:0.12em; text-transform:uppercase;">Stage 2 vs single-pass</div>
+      <p style="margin-top:10px; font-size:0.92rem; color:#334155; line-height:1.6;">Visually they look very similar. The cascade's win is <b>+0.16 dB on average</b> &mdash; small and <em>uniform</em> rather than concentrated on any one scene type. 88% of samples see a small improvement; 12% see a small regression.</p>
+    </div>
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:18px;">
+      <div style="font-size:0.68rem; font-weight:700; color:#ea580c; letter-spacing:0.12em; text-transform:uppercase;">What it implies</div>
+      <p style="margin-top:10px; font-size:0.92rem; color:#334155; line-height:1.6;">This is looking like a consistent <em>refinement</em> improvement (worth the 2&times; compute at the fixed K=500 operating point) rather than an <em>adaptive</em> dispatch win. The per-sample uniformity means a gate wouldn&apos;t have much to allocate differentially.</p>
+    </div>
+  </div>
+</section>
+
 <!-- ====== SECTION 01: RADIOMAPSEER (PRIMARY) ====== -->
 <section class="phase" id="radiomapseer">
   <div class="phase-header">
