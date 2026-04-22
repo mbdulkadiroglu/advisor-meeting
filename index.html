@@ -1798,6 +1798,273 @@
   </div>
 </section>
 
+<!-- ====== SECTION 00G: PROPOSED — AUTOREGRESSIVE SPECULATIVE DECODING FOR RF ====== -->
+<section class="phase" id="autoregressive-proposal">
+  <div class="phase-header">
+    <span class="phase-num">00g &middot; a proposal for real speculative decoding</span>
+    <h2 class="phase-title">Proposed Next Step: Autoregressive Radio-Map Generation</h2>
+    <p class="phase-desc">What we built in Section 00f is better named <em>learned per-token routing</em>. It&apos;s not <em>true</em> speculative decoding because radio-map reconstruction is a one-shot continuous regression &mdash; none of the three ingredients that make LLM speculative decoding work (autoregressive generation, discrete token distributions, parallel verification of serial generation) are present. This section outlines how to reformulate the task so those ingredients appear, and how the literature on autoregressive image generation with speculative decoding (VAR, LlamaGen, MaskGIT) maps onto RF.</p>
+  </div>
+
+  <!-- What's missing today, what we'd add -->
+  <div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:24px; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin-bottom:20px;">
+    <h3 style="font-size:1.1rem; color:#0f172a; margin-bottom:14px;">What we need to borrow from the LLM world</h3>
+    <table style="width:100%; border-collapse:collapse; font-size:0.93rem; color:#1e293b;">
+      <thead>
+        <tr style="background:#f8fafc; border-bottom:2px solid #cbd5e1;">
+          <th style="text-align:left; padding:10px 12px;">Property</th>
+          <th style="text-align:left; padding:10px 12px;">LLM speculative decoding</th>
+          <th style="text-align:left; padding:10px 12px;">Our current RF setup</th>
+          <th style="text-align:left; padding:10px 12px;">What the proposal adds</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:10px 12px;"><strong>Sequential generation</strong></td>
+          <td style="padding:10px 12px; color:#065f46;">tokens t&#8321;&hellip;t&#8342;</td>
+          <td style="padding:10px 12px; color:#9a3412;">one forward pass, all pixels at once</td>
+          <td style="padding:10px 12px; color:#1e40af;">predict scales 8&#178; &rarr; 16&#178; &rarr; &hellip; &rarr; 256&#178;</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:10px 12px;"><strong>Discrete output distribution</strong></td>
+          <td style="padding:10px 12px; color:#065f46;">softmax over vocab</td>
+          <td style="padding:10px 12px; color:#9a3412;">continuous scalar per pixel</td>
+          <td style="padding:10px 12px; color:#1e40af;">VQ-VAE codebook per patch</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:10px 12px;"><strong>Parallel verification</strong></td>
+          <td style="padding:10px 12px; color:#065f46;">target runs once on K draft tokens</td>
+          <td style="padding:10px 12px; color:#9a3412;">target runs independently; no verification</td>
+          <td style="padding:10px 12px; color:#1e40af;">target verifies a batch of scales in one pass</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 12px;"><strong>Acceptance</strong></td>
+          <td style="padding:10px 12px; color:#065f46;">rejection sampling &rArr; lossless</td>
+          <td style="padding:10px 12px; color:#9a3412;">deterministic pick; approximate</td>
+          <td style="padding:10px 12px; color:#1e40af;">p/q acceptance per token &rArr; lossless</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Proposed architecture diagram -->
+  <figure style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:28px 24px 18px; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin:0 0 20px 0;">
+    <svg viewBox="0 0 960 540" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Proposed autoregressive speculative decoding for RF reconstruction"
+         style="display:block; width:100%; height:auto; font-family:'DM Sans',-apple-system,sans-serif;">
+      <defs>
+        <marker id="ar-arr-gray"   viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker>
+        <marker id="ar-arr-green"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#10b981"/></marker>
+        <marker id="ar-arr-indigo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#6366f1"/></marker>
+        <marker id="ar-arr-amber"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#ea580c"/></marker>
+      </defs>
+
+      <!-- Top row: input + scale pyramid going LtoR -->
+      <g>
+        <rect x="30" y="60" width="130" height="80" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+        <text x="95" y="82" text-anchor="middle" font-size="11" font-weight="700" fill="#334155">Input conditioning</text>
+        <text x="95" y="100" text-anchor="middle" font-size="9" fill="#475569">buildings + Tx +</text>
+        <text x="95" y="112" text-anchor="middle" font-size="9" fill="#475569">K=500 meas + mask</text>
+        <text x="95" y="128" text-anchor="middle" font-size="8.5" fill="#64748b" font-style="italic">(fed to every scale)</text>
+      </g>
+
+      <!-- Scale pyramid (left to right = finer resolution) -->
+      <g>
+        <text x="480" y="36" text-anchor="middle" font-size="12" font-weight="700" fill="#312e81">Scale pyramid &mdash; predict tokens one scale at a time</text>
+
+        <!-- Scale 1: 8x8 -->
+        <rect x="200" y="78" width="50" height="50" rx="4" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.6"/>
+        <text x="225" y="100" text-anchor="middle" font-size="9" fill="#312e81" font-weight="700">8&#178;</text>
+        <text x="225" y="114" text-anchor="middle" font-size="8" fill="#3730a3">64 tokens</text>
+        <text x="225" y="140" text-anchor="middle" font-size="8" fill="#475569">scale 1</text>
+
+        <!-- Scale 2: 16x16 -->
+        <rect x="288" y="73" width="60" height="60" rx="4" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.6"/>
+        <text x="318" y="97" text-anchor="middle" font-size="9" fill="#312e81" font-weight="700">16&#178;</text>
+        <text x="318" y="112" text-anchor="middle" font-size="8" fill="#3730a3">256 tokens</text>
+        <text x="318" y="148" text-anchor="middle" font-size="8" fill="#475569">scale 2</text>
+
+        <!-- Scale 3: 32x32 -->
+        <rect x="386" y="68" width="70" height="70" rx="4" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.6"/>
+        <text x="421" y="94" text-anchor="middle" font-size="9" fill="#312e81" font-weight="700">32&#178;</text>
+        <text x="421" y="109" text-anchor="middle" font-size="8" fill="#3730a3">1024 tokens</text>
+        <text x="421" y="152" text-anchor="middle" font-size="8" fill="#475569">scale 3</text>
+
+        <!-- Scale 4: 64x64 -->
+        <rect x="496" y="63" width="80" height="80" rx="4" fill="#c7d2fe" stroke="#6366f1" stroke-width="1.6"/>
+        <text x="536" y="92" text-anchor="middle" font-size="9" fill="#312e81" font-weight="700">64&#178;</text>
+        <text x="536" y="107" text-anchor="middle" font-size="8" fill="#3730a3">4096 tokens</text>
+        <text x="536" y="158" text-anchor="middle" font-size="8" fill="#475569">scale 4</text>
+
+        <!-- Scale 5: 128x128 -->
+        <rect x="616" y="58" width="90" height="90" rx="4" fill="#c7d2fe" stroke="#6366f1" stroke-width="1.6"/>
+        <text x="661" y="90" text-anchor="middle" font-size="9" fill="#312e81" font-weight="700">128&#178;</text>
+        <text x="661" y="108" text-anchor="middle" font-size="8" fill="#3730a3">16K tokens</text>
+        <text x="661" y="162" text-anchor="middle" font-size="8" fill="#475569">scale 5</text>
+
+        <!-- Scale 6: 256x256 -->
+        <rect x="746" y="53" width="100" height="100" rx="4" fill="#a5b4fc" stroke="#6366f1" stroke-width="1.6"/>
+        <text x="796" y="88" text-anchor="middle" font-size="9" fill="#312e81" font-weight="700">256&#178;</text>
+        <text x="796" y="106" text-anchor="middle" font-size="8" fill="#3730a3">final</text>
+        <text x="796" y="170" text-anchor="middle" font-size="8" fill="#475569">scale 6</text>
+
+        <!-- Arrows between scales -->
+        <line x1="250" y1="103" x2="282" y2="103" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar-arr-gray)"/>
+        <line x1="348" y1="103" x2="380" y2="103" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar-arr-gray)"/>
+        <line x1="456" y1="103" x2="490" y2="103" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar-arr-gray)"/>
+        <line x1="576" y1="103" x2="610" y2="103" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar-arr-gray)"/>
+        <line x1="706" y1="103" x2="740" y2="103" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar-arr-gray)"/>
+
+        <!-- Conditioning arrows from input to each scale -->
+        <path d="M 160 120 Q 180 130 200 120" fill="none" stroke="#64748b" stroke-width="0.8" stroke-dasharray="2,2"/>
+        <path d="M 160 120 Q 230 180 318 135" fill="none" stroke="#64748b" stroke-width="0.8" stroke-dasharray="2,2"/>
+        <path d="M 160 125 Q 290 200 421 140" fill="none" stroke="#64748b" stroke-width="0.8" stroke-dasharray="2,2"/>
+      </g>
+
+      <text x="225" y="168" text-anchor="middle" font-size="7.5" fill="#64748b" font-style="italic">(dashed: cond.)</text>
+
+      <!-- Middle band: draft row -->
+      <g>
+        <rect x="30" y="220" width="130" height="60" rx="10" fill="#d1fae5" stroke="#10b981" stroke-width="1.8"/>
+        <text x="95" y="240" text-anchor="middle" font-size="11" font-weight="700" fill="#065f46">SMALL draft ViT</text>
+        <text x="95" y="256" text-anchor="middle" font-size="9" fill="#047857">generates each scale</text>
+        <text x="95" y="268" text-anchor="middle" font-size="9" fill="#047857">autoregressively</text>
+      </g>
+      <path d="M 160 250 L 198 250" stroke="#10b981" stroke-width="2" marker-end="url(#ar-arr-green)"/>
+
+      <!-- Visualize draft producing each scale's tokens -->
+      <g>
+        <rect x="200" y="225" width="646" height="50" rx="8" fill="#ecfdf5" stroke="#10b981" stroke-width="1.4"/>
+        <text x="523" y="242" text-anchor="middle" font-size="10" font-weight="700" fill="#065f46">
+          draft emits candidate tokens for all 6 scales sequentially &mdash; fast, cheap, but approximate
+        </text>
+        <text x="523" y="260" text-anchor="middle" font-size="9" fill="#047857">
+          t&#8321;, t&#8322;, t&#8323;, &hellip;, t_K for each successive scale
+        </text>
+      </g>
+
+      <!-- Lower band: target row -->
+      <g>
+        <rect x="30" y="325" width="130" height="60" rx="10" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.8"/>
+        <text x="95" y="345" text-anchor="middle" font-size="11" font-weight="700" fill="#312e81">LARGE target ViT</text>
+        <text x="95" y="361" text-anchor="middle" font-size="9" fill="#3730a3">verifies K tokens in</text>
+        <text x="95" y="373" text-anchor="middle" font-size="9" fill="#3730a3">ONE parallel forward</text>
+      </g>
+      <path d="M 160 355 L 198 355" stroke="#6366f1" stroke-width="2" marker-end="url(#ar-arr-indigo)"/>
+
+      <g>
+        <rect x="200" y="330" width="646" height="50" rx="8" fill="#eef2ff" stroke="#6366f1" stroke-width="1.4"/>
+        <text x="523" y="348" text-anchor="middle" font-size="10" font-weight="700" fill="#312e81">
+          one parallel forward through large ViT computes distribution over ALL K positions at once
+        </text>
+        <text x="523" y="365" text-anchor="middle" font-size="9" fill="#4338ca">
+          for each draft token t&#7522;: compute target probability p&#7522; and compare to draft probability q&#7522;
+        </text>
+      </g>
+
+      <!-- Final band: accept/reject -->
+      <g>
+        <rect x="30" y="425" width="130" height="60" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.8"/>
+        <text x="95" y="445" text-anchor="middle" font-size="11" font-weight="700" fill="#9a3412">ACCEPT / REJECT</text>
+        <text x="95" y="461" text-anchor="middle" font-size="9" fill="#c2410c">rejection sampling</text>
+        <text x="95" y="473" text-anchor="middle" font-size="9" fill="#c2410c">per token</text>
+      </g>
+      <path d="M 160 455 L 198 455" stroke="#ea580c" stroke-width="2" marker-end="url(#ar-arr-amber)"/>
+
+      <g>
+        <rect x="200" y="427" width="646" height="60" rx="8" fill="#fff7ed" stroke="#ea580c" stroke-width="1.4"/>
+        <text x="523" y="445" text-anchor="middle" font-size="10" font-weight="700" fill="#9a3412">
+          accept draft token with prob min(1, p/q) &rArr; lossless distribution guarantee
+        </text>
+        <text x="523" y="462" text-anchor="middle" font-size="9" fill="#7c2d12">
+          if rejected: resample from the corrected distribution (p &minus; q)&#8314; / (1 &minus; q&#7522;)
+        </text>
+        <text x="523" y="478" text-anchor="middle" font-size="9" fill="#7c2d12" font-style="italic">
+          expected speedup: up to K&times; target forwards saved per draft pass if most tokens accept
+        </text>
+      </g>
+
+      <!-- VQ-VAE decode to final image -->
+      <path d="M 795 492 Q 820 510 835 520" fill="none" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar-arr-gray)"/>
+      <text x="825" y="530" text-anchor="end" font-size="8.5" fill="#475569" font-style="italic">accepted tokens &rarr; VQ-VAE decode &rarr; full radio map</text>
+    </svg>
+  </figure>
+
+  <!-- Where the real savings come from -->
+  <div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:24px; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin-bottom:20px;">
+    <h3 style="font-size:1.1rem; color:#0f172a; margin-bottom:12px;">Why this would actually save compute</h3>
+    <p style="font-size:0.94rem; color:#334155; line-height:1.65; margin-bottom:10px;">
+      In our current system the fixed overhead (draft + verifier) eats the sparse-target savings because the large model was always running in one forward pass anyway. In the proposed AR setup, the <strong>baseline</strong> is K sequential target forwards (autoregressive generation). Speculative decoding amortizes those K target forwards into just <em>one</em> parallel target forward.
+    </p>
+    <p style="font-size:0.94rem; color:#334155; line-height:1.65; margin:0;">
+      So the potential speedup is genuinely up to <strong>K&times;</strong> (the number of tokens speculated ahead) minus the draft overhead. At K=4 with 80% acceptance rate, the LLM literature routinely shows 2&ndash;3&times; wall-clock speedup with zero quality loss. That&apos;s the kind of saving our current setup cannot physically achieve.
+    </p>
+  </div>
+
+  <!-- Tradeoffs cards -->
+  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; margin-bottom:20px;">
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:18px;">
+      <div style="font-size:0.68rem; font-weight:700; color:#10b981; letter-spacing:0.12em; text-transform:uppercase;">What it buys</div>
+      <p style="margin-top:10px; font-size:0.92rem; color:#334155; line-height:1.6;"><strong>True speculative decoding</strong> with a provable lossless guarantee. Real wall-clock speedup, not just adaptive routing. Fits into a well-established literature (VAR, LlamaGen, MaskGIT, Chen 2023, Leviathan 2023) so the methodological foundation is shared.</p>
+    </div>
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:18px;">
+      <div style="font-size:0.68rem; font-weight:700; color:#ea580c; letter-spacing:0.12em; text-transform:uppercase;">What it costs</div>
+      <p style="margin-top:10px; font-size:0.92rem; color:#334155; line-height:1.6;">Substantial architecture redesign. Need to train a <strong>VQ-VAE</strong> for radio-map patches (~1 week), then an AR baseline at each scale (~1 week), then the scale-pyramid with cross-scale conditioning (~1 week), then the speculative-decoding inference pipeline (~3 days). Total: <strong>~1 month of focused work</strong>.</p>
+    </div>
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:18px;">
+      <div style="font-size:0.68rem; font-weight:700; color:#6366f1; letter-spacing:0.12em; text-transform:uppercase;">What could fail</div>
+      <p style="margin-top:10px; font-size:0.92rem; color:#334155; line-height:1.6;">VQ-VAE token quantization might hurt RMSE relative to direct regression (AR generation typically sacrifices some quality for tractability). The AR baseline might be worse than our existing UNet (currently 1.92&nbsp;dB at K=500). If the draft accepts &lt; 60% of tokens, the theoretical K&times; speedup collapses.</p>
+    </div>
+  </div>
+
+  <!-- Concrete implementation plan -->
+  <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:24px;">
+    <h3 style="font-size:1.1rem; color:#0f172a; margin-bottom:14px;">Concrete implementation plan (~4 weeks)</h3>
+    <table style="width:100%; border-collapse:collapse; font-size:0.92rem; color:#334155;">
+      <thead>
+        <tr style="background:#f1f5f9; border-bottom:2px solid #cbd5e1;">
+          <th style="text-align:left; padding:10px 12px;">Phase</th>
+          <th style="text-align:left; padding:10px 12px;">What to build</th>
+          <th style="text-align:left; padding:10px 12px;">Validation gate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid #e2e8f0;">
+          <td style="padding:10px 12px; vertical-align:top;"><strong>Week 1</strong></td>
+          <td style="padding:10px 12px; vertical-align:top;">VQ-VAE on 256&times;256 radio maps, codebook size 1024&ndash;4096</td>
+          <td style="padding:10px 12px; vertical-align:top; font-size:0.88rem;">reconstruction RMSE via encode+decode &lt; 0.5&nbsp;dB penalty over raw target</td>
+        </tr>
+        <tr style="border-bottom:1px solid #e2e8f0;">
+          <td style="padding:10px 12px; vertical-align:top;"><strong>Week 2</strong></td>
+          <td style="padding:10px 12px; vertical-align:top;">AR baseline: single-scale (256&#178;) next-token prediction conditioned on (buildings, Tx, K meas, mask)</td>
+          <td style="padding:10px 12px; vertical-align:top; font-size:0.88rem;">decoded RMSE within ~1&nbsp;dB of our current UNet at K=500</td>
+        </tr>
+        <tr style="border-bottom:1px solid #e2e8f0;">
+          <td style="padding:10px 12px; vertical-align:top;"><strong>Week 3</strong></td>
+          <td style="padding:10px 12px; vertical-align:top;">Scale-pyramid extension: 8&#178; &rarr; 16&#178; &rarr; &hellip; &rarr; 256&#178; with cross-scale conditioning (VAR-style)</td>
+          <td style="padding:10px 12px; vertical-align:top; font-size:0.88rem;">multi-scale RMSE &le; single-scale RMSE; per-scale sanity plots</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 12px; vertical-align:top;"><strong>Week 4</strong></td>
+          <td style="padding:10px 12px; vertical-align:top;">Train small + large AR model pair. Implement speculative decoding with rejection sampling per token</td>
+          <td style="padding:10px 12px; vertical-align:top; font-size:0.88rem;">acceptance rate &ge; 60%; measured wall-clock &gt; 1.5&times; faster than large-only AR</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Literature anchors -->
+  <div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:18px; margin-top:16px;">
+    <div style="font-size:0.68rem; font-weight:700; color:#64748b; letter-spacing:0.12em; text-transform:uppercase;">Literature anchors for this design</div>
+    <ul style="margin-top:8px; font-size:0.9rem; color:#334155; line-height:1.65; padding-left:18px;">
+      <li><strong>Chen et al. 2023</strong> (arXiv:2302.01318) and <strong>Leviathan et al. 2023</strong> (arXiv:2211.17192) &mdash; the canonical speculative-decoding papers.</li>
+      <li><strong>VAR</strong> (Tian et al. 2024, arXiv:2404.02905) &mdash; next-scale autoregressive image generation.</li>
+      <li><strong>LlamaGen</strong> (Sun et al. 2024, arXiv:2406.06525) &mdash; autoregressive image generation with discrete tokens.</li>
+      <li><strong>MaskGIT</strong> (Chang et al. 2022) and <strong>MUSE</strong> (Chang et al. 2023) &mdash; iterative masked image generation, another natural home for speculative decoding.</li>
+      <li><strong>VQ-VAE-2</strong> (Razavi et al. 2019) &mdash; hierarchical codebook for high-res images, basis for the tokenizer stage.</li>
+    </ul>
+  </div>
+</section>
+
 <!-- ====== SECTION 01: RADIOMAPSEER (PRIMARY) ====== -->
 <section class="phase" id="radiomapseer">
   <div class="phase-header">
